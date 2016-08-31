@@ -29,11 +29,12 @@ const levelLimit = 3
 const ownerLimit = 3
 
 func ExitError(err error) {
-	fmt.Fprintln(os.Stderr, err)
-	os.Exit(1)
+	log.Fatal(err)
 }
 
 func init() {
+	log.SetOutput(os.Stderr)
+
 	flag.StringVar(&githubToken, "github-token", "", "")
 	flag.StringVar(&githubOrg, "github-org", "kubernetes", "")
 	flag.StringVar(&githubRepo, "github-repo", "kubernetes", "")
@@ -96,7 +97,7 @@ func fetchTopCommitters(client *github.Client, dir string, limit int) {
 
 	opt := &github.CommitsListOptions{
 		Path:  dir,
-		Since: now.AddDate(0, -12, 0),
+		Since: now.AddDate(0, -24, 0),
 		ListOptions: github.ListOptions{
 			PerPage: 500,
 		},

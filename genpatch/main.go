@@ -2,13 +2,19 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"flag"
-	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
+
+type Owners struct {
+	Approvers []string `yaml:"approvers"`
+	Reviewers []string `yaml:"reviewers"`
+}
 
 var gitRepo string
 
@@ -19,39 +25,39 @@ func init() {
 
 func patch(path string, rs []string) {
 	p := filepath.Join(gitRepo, path, "OWNERS")
-	// fmt.Println(p)
 
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	existingOwnersBytes, err := ioutil.ReadFile(p)
+	if err != nil && !os.IsNotExist(err) {
+		panic(err)
+	}
+
+	existingOwners := Owners{}
+	err = yaml.Unmarshal(existingOwnersBytes, &existingOwners)
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
 
-	b := bytes.NewBuffer(nil)
-	b.WriteString("\nreviewers:\n")
-	for _, r := range rs {
-		b.WriteString(fmt.Sprintf(" - %s\n", r))
+	existingOwnersSet := make(map[string]bool)
+	for _, existingOwner := range existingOwners.Reviewers {
+		existingOwnersSet[existingOwner] = true
 	}
 
-	if _, err := f.Write(b.Bytes()); err != nil {
+	for _, newOwner := range rs {
+		if !existingOwnersSet[newOwner] {
+			existingOwners.Reviewers = append(existingOwners.Reviewers, newOwner)
+		}
+	}
+
+	newOwnersBytes, err := yaml.Marshal(existingOwners)
+	if err != nil {
 		panic(err)
 	}
 
-	// names := map[string]struct{}{}
-	// scanner := bufio.NewScanner(f)
-	// for scanner.Scan() {
-	// 	line := scanner.Text()
-	// 	line = strings.TrimSpace(line)
-	// 	fields := strings.Fields(line)
-	// 	if len(fields) != 2 || fields[0] != "-" {
-	// 		continue
-	// 	}
-	// 	name := fields[1]
-	// 	names[name] = struct{}{}
-	// }
-	// if err := scanner.Err(); err != nil {
-	// 	panic(err)
-	// }
+	err = ioutil.WriteFile(p, newOwnersBytes, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 // How to run it:
